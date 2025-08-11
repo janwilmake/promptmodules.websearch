@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🐉 Prior Art Research - Dragon Ball Style</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'saiyan-orange': '#FF8C00',
+                        'saiyan-blue': '#1E90FF',
+                        'namek-green': '#32CD32',
+                        'frieza-purple': '#9932CC',
+                        'goku-orange': '#FF6347',
+                        'vegeta-blue': '#4169E1',
+                        'dragon-gold': '#FFD700',
+                        'ki-energy': '#00FFFF'
+                    },
+                    animation: {
+                        'power-up': 'powerUp 2s ease-in-out infinite alternate',
+                        'float': 'float 3s ease-in-out infinite',
+                        'ki-blast': 'kiBlast 0.5s ease-out'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @keyframes powerUp {
+            0% {
+                box-shadow: 0 0 10px #FFD700;
+                transform: scale(1);
+            }
+
+            100% {
+                box-shadow: 0 0 30px #FFD700, 0 0 40px #FFD700;
+                transform: scale(1.02);
+            }
+        }
+
+        @keyframes float {
+
+            0%,
+            100% {
+                transform: translateY(0px);
+            }
+
+            50% {
+                transform: translateY(-10px);
+            }
+        }
+
+        @keyframes kiBlast {
+            0% {
+                transform: scale(1);
+                opacity: 0.8;
+            }
+
+            100% {
+                transform: scale(1.1);
+                opacity: 1;
+            }
+        }
+
+        .dragon-gradient {
+            background: linear-gradient(135deg, #FF6347, #FFD700, #FF8C00);
+        }
+
+        .saiyan-gradient {
+            background: linear-gradient(135deg, #1E90FF, #4169E1, #9932CC);
+        }
+
+        .namek-gradient {
+            background: linear-gradient(135deg, #32CD32, #00FFFF, #1E90FF);
+        }
+
+        .power-level {
+            background: linear-gradient(45deg, #FFD700, #FF6347);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .ki-aura {
+            position: relative;
+        }
+
+        .ki-aura::before {
+            content: '';
+            position: absolute;
+            top: -5px;
+            left: -5px;
+            right: -5px;
+            bottom: -5px;
+            background: linear-gradient(45deg, #00FFFF, #FFD700, #FF6347, #9932CC);
+            z-index: -1;
+            border-radius: inherit;
+            opacity: 0.3;
+            animation: power-up 2s ease-in-out infinite alternate;
+        }
+    </style>
+</head>
+
+<body class="bg-gradient-to-br from-gray-900 via-purple-900 to-blue-900 min-h-screen text-white">
+    <!-- Loading Screen -->
+    <div id="loading" class="fixed inset-0 bg-black flex items-center justify-center z-50">
+        <div class="text-center">
+            <div class="text-6xl mb-4 animate-bounce">🐉</div>
+            <div class="text-xl text-dragon-gold animate-pulse">Gathering Dragon Balls...</div>
+            <div class="mt-4 w-64 bg-gray-800 rounded-full h-2">
+                <div id="loadingBar"
+                    class="bg-gradient-to-r from-dragon-gold to-saiyan-orange h-2 rounded-full transition-all duration-300"
+                    style="width: 0%"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Error Screen -->
+    <div id="error" class="hidden fixed inset-0 bg-red-900 flex items-center justify-center z-40">
+        <div class="text-center p-8 bg-black rounded-lg border-2 border-red-500">
+            <div class="text-6xl mb-4">💥</div>
+            <h2 class="text-3xl font-bold mb-4 text-red-400">KAMEHAMEHA FAILED!</h2>
+            <p class="text-lg mb-4">Unable to load the research data.</p>
+            <p class="text-sm text-gray-400 mb-4" id="errorMessage"></p>
+            <button onclick="location.reload()"
+                class="bg-red-600 hover:bg-red-700 px-6 py-2 rounded-lg font-bold transition-colors">
+                Try Again! 🔥
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div id="main" class="hidden">
+        <!-- Hero Header -->
+        <header class="dragon-gradient py-12 px-4">
+            <div class="container mx-auto text-center">
+                <h1 class="text-6xl font-bold mb-4 animate-float">
+                    🐉 Prior Art Research 🐉
+                </h1>
+                <p class="text-2xl opacity-90">Scaling Tool-Calling with the Power of the Dragon Balls</p>
+                <div class="mt-6 flex justify-center space-x-4">
+                    <span class="bg-black bg-opacity-30 px-4 py-2 rounded-full">⭐ Power Level: Over 9000</span>
+                    <span class="bg-black bg-opacity-30 px-4 py-2 rounded-full">🥋 Research Tier: Ultra Instinct</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Navigation -->
+        <nav class="bg-black bg-opacity-50 sticky top-0 z-30 backdrop-blur-sm">
+            <div class="container mx-auto px-4">
+                <div class="flex flex-wrap justify-center space-x-2 py-4" id="nav-links">
+                    <!-- Navigation will be populated by JavaScript -->
+                </div>
+            </div>
+        </nav>
+
+        <!-- Content Container -->
+        <div class="container mx-auto px-4 py-8">
+            <div id="content">
+                <!-- Content will be populated by JavaScript -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let researchData = null;
+
+        // Show loading progress
+        function updateLoadingProgress(percent) {
+            document.getElementById('loadingBar').style.width = percent + '%';
+        }
+
+        // Show error
+        function showError(message) {
+            document.getElementById('loading').classList.add('hidden');
+            document.getElementById('error').classList.remove('hidden');
+            document.getElementById('errorMessage').textContent = message;
+        }
+
+        // Load data
+        async function loadData() {
+            try {
+                updateLoadingProgress(20);
+                const response = await fetch('result.json');
+                updateLoadingProgress(50);
+
+                if (!response.ok) {
+                    throw new Error(`Failed to fetch: ${response.status} ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                updateLoadingProgress(80);
+
+                if (!data.content) {
+                    throw new Error('Invalid data structure: missing content property');
+                }
+
+                researchData = data.content;
+                updateLoadingProgress(100);
+
+                setTimeout(() => {
+                    document.getElementById('loading').classList.add('hidden');
+                    document.getElementById('main').classList.remove('hidden');
+                    renderContent();
+                }, 500);
+
+            } catch (error) {
+                console.error('Error loading data:', error);
+                showError(error.message);
+            }
+        }
+
+        // Create navigation
+        function createNavigation() {
+            const sections = [
+                { id: 'summary', title: '📜 Executive Summary', icon: '🐲' },
+                { id: 'papers', title: '📚 Academic Papers', icon: '🎓' },
+                { id: 'frameworks', title: '⚔️ Agentic Frameworks', icon: '🥋' },
+                { id: 'libraries', title: '🛠️ Libraries & Platforms', icon: '🔧' },
+                { id: 'commercial', title: '🏢 Commercial Systems', icon: '💼' },
+                { id: 'benchmarks', title: '🎯 Evaluation Benchmarks', icon: '📊' },
+                { id: 'strategies', title: '🧠 Strategies', icon: '💡' },
+                { id: 'takeaways', title: '💎 Key Takeaways', icon: '✨' }
+            ];
+
+            const navContainer = document.getElementById('nav-links');
+            sections.forEach(section => {
+                const link = document.createElement('a');
+                link.href = `#${section.id}`;
+                link.className = 'bg-purple-700 hover:bg-purple-600 px-3 py-2 rounded-lg text-sm font-medium transition-all hover:scale-105 ki-aura';
+                link.innerHTML = `${section.icon} ${section.title}`;
+                link.onclick = (e) => {
+                    e.preventDefault();
+                    document.getElementById(section.id).scrollIntoView({ behavior: 'smooth' });
+                };
+                navContainer.appendChild(link);
+            });
+        }
+
+        // Create card component
+        function createCard(title, content, gradient = 'saiyan-gradient', icon = '⭐') {
+            return `
+                <div class="ki-aura bg-gray-800 rounded-xl p-6 shadow-2xl hover:shadow-dragon-gold/20 transition-all duration-300 hover:scale-105">
+                    <div class="${gradient} rounded-lg p-4 mb-4">
+                        <h3 class="text-2xl font-bold text-white flex items-center">
+                            <span class="mr-3 text-3xl">${icon}</span>
+                            ${title}
+                        </h3>
+                    </div>
+                    <div class="prose prose-invert max-w-none">
+                        ${content}
+                    </div>
+                </div>
+            `;
+        }
+
+        // Render academic papers
+        function renderPapers() {
+            if (!researchData.academic_papers_on_tool_learning) return '';
+
+            const papers = researchData.academic_papers_on_tool_learning.map(paper => {
+                return createCard(
+                    paper.paper_name,
+                    `
+                        <div class="mb-4">
+                            <span class="bg-dragon-gold text-black px-3 py-1 rounded-full text-sm font-bold">
+                                ${paper.authors_and_year}
+                            </span>
+                        </div>
+                        <div class="grid md:grid-cols-2 gap-4">
+                            <div>
+                                <h4 class="font-bold text-saiyan-blue mb-2">🎯 Problem</h4>
+                                <p class="text-sm mb-4">${paper.problem_formulation}</p>
+                                
+                                <h4 class="font-bold text-namek-green mb-2">⚡ Strategy</h4>
+                                <p class="text-sm">${paper.scaling_strategy}</p>
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-dragon-gold mb-2">📈 Results</h4>
+                                <p class="text-sm mb-4">${paper.key_quantitative_results}</p>
+                                
+                                <h4 class="font-bold text-red-400 mb-2">⚠️ Limitations</h4>
+                                <p class="text-sm">${paper.stated_limitations}</p>
+                            </div>
+                        </div>
+                    `,
+                    'dragon-gradient',
+                    '📜'
+                );
+            }).join('');
+
+            return `
+                <section id="papers" class="mb-12">
+                    <h2 class="text-4xl font-bold mb-8 text-center power-level">
+                        📚 Academic Papers - The Ancient Scrolls 📚
+                    </h2>
+                    <div class="grid lg:grid-cols-2 gap-8">
+                        ${papers}
+                    </div>
+                </section>
+            `;
+        }
+
+        // Render frameworks
+        function renderFrameworks() {
+            if (!researchData.agentic_reasoning_frameworks) return '';
+
+            const frameworks = researchData.agentic_reasoning_frameworks.map(framework => {
+                return createCard(
+                    framework.framework_name,
+                    `
+                        <div class="space-y-4">
+                            <div>
+                                <h4 class="font-bold text-ki-energy mb-2">💡 Core Idea</h4>
+                                <p class="text-sm">${framework.core_idea}</p>
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-saiyan-blue mb-2">🧠 Decision Logic</h4>
+                                <p class="text-sm">${framework.decision_logic}</p>
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-namek-green mb-2">⚙️ Action Representation</h4>
+                                <p class="text-sm">${framework.action_representation}</p>
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-dragon-gold mb-2">📊 Scalability</h4>
+                                <p class="text-sm">${framework.scalability_analysis}</p>
+                            </div>
+                        </div>
+                    `,
+                    'saiyan-gradient',
+                    '⚔️'
+                );
+            }).join('');
+
+            return `
+                <section id="frameworks" class="mb-12">
+                    <h2 class="text-4xl font-bold mb-8 text-center power-level">
+                        ⚔️ Agentic Frameworks - Fighting Techniques ⚔️
+                    </h2>
+                    <div class="grid lg:grid-cols-2 xl:grid-cols-3 gap-6">
+                        ${frameworks}
+                    </div>
+                </section>
+            `;
+        }
+
+        // Render libraries
+        function renderLibraries() {
+            if (!researchData.tool_calling_libraries_and_platforms) return '';
+
+            const libraries = researchData.tool_calling_libraries_and_platforms.map(library => {
+                return createCard(
+                    library.library_name,
+                    `
+                        <div class="space-y-3">
+                            <div>
+                                <h4 class="font-bold text-dragon-gold mb-2">🔧 Tool Registration</h4>
+                                <p class="text-sm">${library.tool_registration_model}</p>
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-saiyan-blue mb-2">🎯 Routing & Planning</h4>
+                                <p class="text-sm">${library.routing_and_planning_logic}</p>
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-namek-green mb-2">⚡ Concurrency</h4>
+                                <p class="text-sm">${library.concurrency_handling}</p>
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-frieza-purple mb-2">👁️ Observability</h4>
+                                <p class="text-sm">${library.monitoring_and_observability}</p>
+                            </div>
+                        </div>
+                    `,
+                    'namek-gradient',
+                    '🛠️'
+                );
+            }).join('');
+
+            return `
+                <section id="libraries" class="mb-12">
+                    <h2 class="text-4xl font-bold mb-8 text-center power-level">
+                        🛠️ Libraries & Platforms - Power-Up Items 🛠️
+                    </h2>
+                    <div class="grid lg:grid-cols-2 gap-6">
+                        ${libraries}
+                    </div>
+                </section>
+            `;
+        }
+
+        // Render commercial systems
+        function renderCommercial() {
+            if (!researchData.commercial_system_implementations) return '';
+
+            const systems = researchData.commercial_system_implementations.map(system => {
+                return createCard(
+                    `${system.system_name} by ${system.company}`,
+                    `
+                        <div class="space-y-4">
+                            <div>
+                                <h4 class="font-bold text-ki-energy mb-2">🎯 Relevance Detection</h4>
+                                <p class="text-sm">${system.relevance_detection_strategy}</p>
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-saiyan-orange mb-2">⚡ Latency Control</h4>
+                                <p class="text-sm">${system.latency_control_strategy}</p>
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-red-400 mb-2">🛡️ Safety Gating</h4>
+                                <p class="text-sm">${system.safety_gating_strategy}</p>
+                            </div>
+                        </div>
+                    `,
+                    'dragon-gradient',
+                    '🏢'
+                );
+            }).join('');
+
+            return `
+                <section id="commercial" class="mb-12">
+                    <h2 class="text-4xl font-bold mb-8 text-center power-level">
+                        🏢 Commercial Systems - Elite Warriors 🏢
+                    </h2>
+                    <div class="grid lg:grid-cols-2 gap-6">
+                        ${systems}
+                    </div>
+                </section>
+            `;
+        }
+
+        // Render benchmarks
+        function renderBenchmarks() {
+            if (!researchData.tool_use_evaluation_benchmarks) return '';
+
+            const benchmarks = researchData.tool_use_evaluation_benchmarks.map(benchmark => {
+                return createCard(
+                    benchmark.benchmark_name,
+                    `
+                        <div class="space-y-3">
+                            <div>
+                                <h4 class="font-bold text-dragon-gold mb-2">🎯 Primary Goal</h4>
+                                <p class="text-sm">${benchmark.primary_goal}</p>
+                            </div>
+                            <div class="grid md:grid-cols-2 gap-4">
+                                <div>
+                                    <h4 class="font-bold text-saiyan-blue mb-2">📋 Tasks Covered</h4>
+                                    <p class="text-sm">${benchmark.tasks_covered}</p>
+                                </div>
+                                <div>
+                                    <h4 class="font-bold text-namek-green mb-2">📊 Scale & Tools</h4>
+                                    <p class="text-sm">${benchmark.scale_and_tools}</p>
+                                </div>
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-frieza-purple mb-2">📈 Evaluation Metrics</h4>
+                                <p class="text-sm">${benchmark.evaluation_metrics}</p>
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-ki-energy mb-2">🎪 Relevance Measurement</h4>
+                                <p class="text-sm">${benchmark.relevance_measurement}</p>
+                            </div>
+                        </div>
+                    `,
+                    'saiyan-gradient',
+                    '🎯'
+                );
+            }).join('');
+
+            return `
+                <section id="benchmarks" class="mb-12">
+                    <h2 class="text-4xl font-bold mb-8 text-center power-level">
+                        🎯 Evaluation Benchmarks - Tournament Arenas 🎯
+                    </h2>
+                    <div class="grid lg:grid-cols-2 gap-6">
+                        ${benchmarks}
+                    </div>
+                </section>
+            `;
+        }
+
+        // Render strategies section
+        function renderStrategies() {
+            const strategies = [];
+
+            if (researchData.tool_selection_routing_policies) {
+                strategies.push(createCard(
+                    'Tool Selection & Routing Policies',
+                    `
+                        <div class="space-y-4">
+                            <div>
+                                <h4 class="font-bold text-dragon-gold mb-2">📂 Category</h4>
+                                <p class="text-sm">${researchData.tool_selection_routing_policies.policy_category}</p>
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-saiyan-blue mb-2">💡 Key Concepts</h4>
+                                <p class="text-sm">${researchData.tool_selection_routing_policies.key_concepts}</p>
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-namek-green mb-2">📚 Examples</h4>
+                                <p class="text-sm">${researchData.tool_selection_routing_policies.example_systems_or_papers}</p>
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-frieza-purple mb-2">📈 Scalability Findings</h4>
+                                <p class="text-sm">${researchData.tool_selection_routing_policies.scalability_findings}</p>
+                            </div>
+                        </div>
+                    `,
+                    'dragon-gradient',
+                    '🧠'
+                ));
+            }
+
+            if (researchData.efficiency_management_strategies) {
+                strategies.push(createCard(
+                    researchData.efficiency_management_strategies.strategy_name,
+                    `
+                        <div class="space-y-4">
+                            <div>
+                                <h4 class="font-bold text-ki-energy mb-2">📝 Description</h4>
+                                <p class="text-sm">${researchData.efficiency_management_strategies.description}</p>
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-saiyan-blue mb-2">⚡ Impact on Efficiency</h4>
+                                <p class="text-sm">${researchData.efficiency_management_strategies.impact_on_efficiency}</p>
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-red-400 mb-2">⚖️ Trade-offs</h4>
+                                <p class="text-sm">${researchData.efficiency_management_strategies.trade_offs}</p>
+                            </div>
+                        </div>
+                    `,
+                    'namek-gradient',
+                    '💡'
+                ));
+            }
+
+            if (researchData.security_and_safety_frameworks) {
+                strategies.push(createCard(
+                    researchData.security_and_safety_frameworks.framework_or_concept,
+                    `
+                        <div class="space-y-4">
+                            <div>
+                                <h4 class="font-bold text-dragon-gold mb-2">📝 Description</h4>
+                                <p class="text-sm">${researchData.security_and_safety_frameworks.description}</p>
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-saiyan-blue mb-2">🔑 Key Components</h4>
+                                <p class="text-sm">${researchData.security_and_safety_frameworks.key_components_or_rules}</p>
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-frieza-purple mb-2">🔗 Relevance to MCP Scaling</h4>
+                                <p class="text-sm">${researchData.security_and_safety_frameworks.relevance_to_mcp_scaling}</p>
+                            </div>
+                        </div>
+                    `,
+                    'saiyan-gradient',
+                    '🛡️'
+                ));
+            }
+
+            if (strategies.length === 0) return '';
+
+            return `
+                <section id="strategies" class="mb-12">
+                    <h2 class="text-4xl font-bold mb-8 text-center power-level">
+                        🧠 Strategies & Frameworks - Master's Wisdom 🧠
+                    </h2>
+                    <div class="grid lg:grid-cols-2 xl:grid-cols-3 gap-6">
+                        ${strategies.join('')}
+                    </div>
+                </section>
+            `;
+        }
+
+        // Render content
+        function renderContent() {
+            try {
+                createNavigation();
+
+                let content = '';
+
+                // Executive Summary
+                if (researchData.executive_summary_of_prior_art) {
+                    content += `
+                        <section id="summary" class="mb-12">
+                            <h2 class="text-4xl font-bold mb-8 text-center power-level">
+                                📜 Executive Summary - The Prophecy 📜
+                            </h2>
+                            <div class="ki-aura bg-gradient-to-r from-purple-900 to-blue-900 rounded-xl p-8 shadow-2xl">
+                                <div class="prose prose-invert prose-lg max-w-none">
+                                    ${marked.parse(researchData.executive_summary_of_prior_art)}
+                                </div>
+                            </div>
+                        </section>
+                    `;
+                }
+
+                // Markdown Summary
+                if (researchData.prior_art_markdown_summary) {
+                    content += `
+                        <section class="mb-12">
+                            <h2 class="text-4xl font-bold mb-8 text-center power-level">
+                                🐲 Prior Art Deep Dive - The Sacred Texts 🐲
+                            </h2>
+                            <div class="ki-aura bg-gray-800 rounded-xl p-8 shadow-2xl">
+                                <div class="prose prose-invert max-w-none">
+                                    ${marked.parse(researchData.prior_art_markdown_summary)}
+                                </div>
+                            </div>
+                        </section>
+                    `;
+                }
+
+                // Add other sections
+                content += renderPapers();
+                content += renderFrameworks();
+                content += renderLibraries();
+                content += renderCommercial();
+                content += renderBenchmarks();
+                content += renderStrategies();
+
+                // Empirical Impact
+                if (researchData.empirical_impact_of_tool_use) {
+                    const impact = researchData.empirical_impact_of_tool_use;
+                    content += `
+                        <section class="mb-12">
+                            <h2 class="text-4xl font-bold mb-8 text-center power-level">
+                                💥 Empirical Impact - Battle Results 💥
+                            </h2>
+                            ${createCard(
+                        impact.study_or_paper_name,
+                        `
+                                    <div class="space-y-4">
+                                        <div>
+                                            <h4 class="font-bold text-dragon-gold mb-2">🔍 Key Finding</h4>
+                                            <p class="text-sm">${impact.key_finding}</p>
+                                        </div>
+                                        <div>
+                                            <h4 class="font-bold text-saiyan-blue mb-2">📊 Quantitative Evidence</h4>
+                                            <p class="text-sm">${impact.quantitative_evidence}</p>
+                                        </div>
+                                        <div>
+                                            <h4 class="font-bold text-namek-green mb-2">💡 Implications</h4>
+                                            <p class="text-sm">${impact.implications}</p>
+                                        </div>
+                                    </div>
+                                `,
+                        'dragon-gradient',
+                        '💥'
+                    )}
+                        </section>
+                    `;
+                }
+
+                // Research Gaps
+                if (researchData.open_research_gaps_and_future_directions) {
+                    const gaps = researchData.open_research_gaps_and_future_directions;
+                    content += `
+                        <section class="mb-12">
+                            <h2 class="text-4xl font-bold mb-8 text-center power-level">
+                                🔮 Future Directions - Next Tournament 🔮
+                            </h2>
+                            ${createCard(
+                        gaps.research_area,
+                        `
+                                    <div class="space-y-4">
+                                        <div>
+                                            <h4 class="font-bold text-frieza-purple mb-2">❓ Description of Gap</h4>
+                                            <p class="text-sm">${gaps.description_of_gap}</p>
+                                        </div>
+                                        <div>
+                                            <h4 class="font-bold text-red-400 mb-2">⚔️ Key Challenges</h4>
+                                            <p class="text-sm">${gaps.key_challenges}</p>
+                                        </div>
+                                        <div>
+                                            <h4 class="font-bold text-ki-energy mb-2">🚀 Future Research Directions</h4>
+                                            <p class="text-sm">${gaps.future_research_directions}</p>
+                                        </div>
+                                    </div>
+                                `,
+                        'saiyan-gradient',
+                        '🔮'
+                    )}
+                        </section>
+                    `;
+                }
+
+                // Key Takeaways
+                if (researchData.key_takeaways_for_project) {
+                    content += `
+                        <section id="takeaways" class="mb-12">
+                            <h2 class="text-4xl font-bold mb-8 text-center power-level">
+                                💎 Key Takeaways - Ultimate Power-Up 💎
+                            </h2>
+                            <div class="ki-aura bg-gradient-to-br from-dragon-gold via-saiyan-orange to-frieza-purple rounded-xl p-8 shadow-2xl">
+                                <div class="prose prose-invert prose-lg max-w-none">
+                                    ${marked.parse(researchData.key_takeaways_for_project)}
+                                </div>
+                            </div>
+                        </section>
+                    `;
+                }
+
+                // Comparative Summaries
+                if (researchData.comparative_summary_of_agentic_frameworks) {
+                    content += `
+                        <section class="mb-12">
+                            <h2 class="text-4xl font-bold mb-8 text-center power-level">
+                                📊 Framework Comparison - Power Rankings 📊
+                            </h2>
+                            <div class="ki-aura bg-gray-800 rounded-xl p-8 shadow-2xl overflow-x-auto">
+                                <div class="prose prose-invert max-w-none">
+                                    ${marked.parse(researchData.comparative_summary_of_agentic_frameworks)}
+                                </div>
+                            </div>
+                        </section>
+                    `;
+                }
+
+                if (researchData.comparative_summary_of_commercial_systems) {
+                    content += `
+                        <section class="mb-12">
+                            <h2 class="text-4xl font-bold mb-8 text-center power-level">
+                                🏆 Commercial Systems Analysis - Elite Comparison 🏆
+                            </h2>
+                            <div class="ki-aura bg-gray-800 rounded-xl p-8 shadow-2xl">
+                                <div class="prose prose-invert max-w-none">
+                                    ${marked.parse(researchData.comparative_summary_of_commercial_systems)}
+                                </div>
+                            </div>
+                        </section>
+                    `;
+                }
+
+                document.getElementById('content').innerHTML = content;
+
+            } catch (error) {
+                console.error('Error rendering content:', error);
+                showError('Failed to render content: ' + error.message);
+            }
+        }
+
+        // Initialize
+        window.addEventListener('load', loadData);
+    </script>
+</body>
+
+</html>

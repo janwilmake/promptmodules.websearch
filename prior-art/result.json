@@ -1,0 +1,611 @@
+{
+  "type": "json",
+  "content": {
+    "prior_art_markdown_summary": "## Prior Art in Scaling Tool-Calling\n\nThe strategy of dynamically enabling tools or Model-Controlled Processes (MCPs) only when relevant is strongly validated by a significant body of research. The core challenge is to grant Large Language Models (LLMs) access to a vast number of external tools without degrading their performance, increasing latency, or introducing security risks. The research converges on a multi-faceted approach that combines specialized model training, efficient agentic architectures, and robust security protocols.\n\n### 1. Core Paradigms for Teaching Tool Use\n\nResearch into embedding tool-use capabilities directly into LLMs has followed two main paths:\n\n*   **Self-Supervised Fine-Tuning (e.g., Toolformer):** The seminal \"Toolformer\" paper (Schick et al., 2023) demonstrated that an LLM can teach itself to use tools. By sampling potential API calls in a large text corpus and only keeping those that reduce the model's perplexity (i.e., improve its ability to predict the next word), the model learns to make useful tool calls in a zero-shot manner. This method proved effective for a small set of tools, significantly improving performance on tasks like math and question-answering without harming the model's core language abilities.\n\n*   **Large-Scale Supervised Fine-Tuning (e.g., ToolLLM, Gorilla):** To scale to thousands of real-world APIs, the field has shifted towards supervised instruction tuning. The \"ToolLLM\" project (Qin et al., 2023) created **ToolBench**, a massive dataset of over 16,000 real-world APIs, and used it to fine-tune models. This approach relies on a powerful teacher model (like GPT-4) to generate complex instruction-following data, including multi-step reasoning paths. Similarly, the **Gorilla** project and its **Berkeley Function Calling Leaderboard (BFCL)** focus on fine-tuning models for high-accuracy API invocation and have become a standard for evaluation.\n\n### 2. Architectural Patterns for Agentic Reasoning\n\nHow an agent reasons and acts determines its efficiency and scalability. The research shows a clear evolution in architectural patterns:\n\n*   **Interleaved Reasoning and Action (e.g., ReAct):** Early frameworks like ReAct (Yao et al., 2022) use a \"Thought-Action-Observation\" loop, where the LLM generates a reasoning step, then an action, then observes the result, repeating the cycle. While effective for simple tasks, this approach is slow and costly due to the numerous LLM calls and can quickly exceed context window limits.\n\n*   **Decoupled Planning and Execution (e.g., ReWOO, LLMCompiler):** To address these limitations, more advanced frameworks separate planning from execution. In the **ReWOO** framework (Xu et al., 2023), a \"Planner\" LLM creates a complete multi-step plan upfront, with placeholders for evidence. \"Worker\" modules then execute the necessary tool calls in parallel to fill these placeholders. This pattern has been shown to reduce token usage by over 60% and improve accuracy compared to ReAct. **LLMCompiler** further optimizes this by generating a Directed Acyclic Graph (DAG) of tasks that can be executed with maximum parallelism.\n\n### 3. The Dominant Strategy for Scaling: Retrieval-Augmented Tool Calling\n\nWhen dealing with thousands of potential tools, it is infeasible to include all their descriptions (schemas) in the LLM's prompt. The consensus solution is a two-stage architecture:\n\n1.  **Fast Retrieval:** First, a lightweight retrieval system selects a small subset of relevant tools. This is typically done by creating vector embeddings of all tool schemas and using an Approximate Nearest Neighbor (ANN) search index (like FAISS) to find the `top-k` most relevant candidates for a given user query.\n2.  **LLM Reasoning:** The LLM is then prompted with only this small, relevant subset of tools. This drastically reduces the token count, lowering cost and latency, and focuses the model on the most plausible options.\n\nThis retrieval-as-filter approach is a cornerstone of modern tool-calling systems like ToolLLM and is essential for achieving scalability.\n\n### 4. Production-Grade Strategies and Best Practices\n\nCommercial systems from major AI labs provide insights into real-world implementation:\n\n*   **Relevance Detection:** Systems use a combination of techniques. **Microsoft 365 Copilot** uses a \"grounding\" step that queries the user's private Microsoft Graph data to enrich the prompt *before* calling the LLM. **OpenAI's API** relies on well-written tool descriptions and provides a `tool_choice` parameter to force or prevent tool use. **Perplexity AI** offers user-selectable modes (e.g., 'Pro Search') to control the depth of research.\n\n*   **Latency and Cost Control:** **OpenAI** and **Google** support `parallel_tool_calls`, allowing multiple independent tools to be invoked in a single turn, reducing round-trip latency. **Anthropic's Claude** provides mechanisms like iteration limits and token budgets to prevent runaway costs. Caching idempotent API calls is another common and effective strategy.\n\n*   **Empirical Validation:** The core idea to \"use tools only when needed\" is directly supported by research. The **RAGate** paper (Wang et al., 2024) introduced a gating mechanism that learned when to retrieve information. It achieved an **84% reduction** in retrieval calls while preserving the majority of the performance gains, demonstrating a clear efficiency and performance benefit to selective tool use.\n\n### 5. Security and Safety: The Principle of Least Privilege\n\nGranting agents access to external tools creates significant security risks (OWASP LLM06: Excessive Agency). Best practices are converging on a defense-in-depth approach:\n\n*   **Protocol-Level Security:** The **Model Context Protocol (MCP)** specification mandates the use of OAuth 2.1 with Resource Indicators (RFC 8707) to bind access tokens to specific tools, preventing token replay attacks.\n*   **Sandboxing:** Any tool that executes code (especially code generated by the LLM) **must** be run in a secure, isolated sandbox (e.g., a container with restricted syscalls or a WASM runtime).\n*   **Human-in-the-Loop (HITL):** For any sensitive or destructive action (e.g., deleting a file, sending an email), the agent must require explicit user confirmation.\n*   **Least Privilege:** Tools should be designed with minimal functionality (e.g., `get_stock_price` instead of a generic `run_shell_command`), and the credentials they use should be scoped as narrowly as possible.",
+    "executive_summary_of_prior_art": "The research on scaling tool-calling for large language models has rapidly evolved from foundational academic concepts to sophisticated, production-grade systems. The field's trajectory began with self-supervised methods like Toolformer, which proved that models could learn to use a small set of tools without human-annotated data. This quickly progressed to large-scale supervised fine-tuning, exemplified by projects like ToolLLM and Gorilla, which leverage massive datasets of real-world APIs (over 16,000 in ToolLLM's case) to teach models complex, multi-step tool use. Concurrently, agentic architectures have matured from inefficient, turn-by-turn reasoning loops (e.g., ReAct) to more efficient, decoupled \"plan-and-execute\" frameworks like ReWOO, which significantly reduce latency and computational cost by planning upfront and executing tool calls in parallel. For scaling to thousands of tools, a dominant two-stage pattern has emerged: a fast, lightweight retriever (often using vector embeddings) first selects a small set of relevant tool candidates, and then the powerful LLM reasons over only this filtered subset. This retrieval-augmented approach is a cornerstone of modern systems. Production systems from OpenAI, Microsoft, and Anthropic further refine these concepts with explicit controls for latency (parallel function calls), relevance (grounding, `tool_choice` parameters), and safety (sandboxing, OAuth 2.1, human-in-the-loop confirmation). The entire ecosystem is supported by open-source libraries (LangChain, AutoGen), which implement these patterns, and standardized benchmarks (ToolBench, BFCL), which drive progress by evaluating models on accuracy, cost, and latency.",
+    "academic_papers_on_tool_learning": [
+      {
+        "paper_name": "Toolformer: Language Models Can Teach Themselves to Use Tools",
+        "authors_and_year": "Timo Schick et al., 2023",
+        "problem_formulation": "Can an off-the-shelf LLM learnâ€”without human labelsâ€”to decide if, when, and how to invoke an external API during generation while preserving its base LM quality?",
+        "scaling_strategy": "Self-supervised data generation on CCNet: randomly insert candidate calls to 5 tools (calculator, QA, Wikipedia search, translation, calendar), execute them, keep only those that lower perplexity, then fine-tune GPT-J.",
+        "key_quantitative_results": "Out-performed GPT-J and GPT-3-175B on LAMA (53.5 vs 31.9 and 39.8) and ASDiv math (40.4 vs 7.5 and 14.0) while maintaining perplexity when calls were disabled.",
+        "stated_limitations": "No support for chained calls, sample-inefficient for numeric tools, sensitive to prompt wording, ignores latency/cost of APIs."
+      },
+      {
+        "paper_name": "ToolLLM: Facilitating Large Language Models to Master 16 000+ Real-World APIs",
+        "authors_and_year": "Xinran Qin et al., 2023",
+        "problem_formulation": "Bridge the gap between closed models (GPT-4) and open LLMs by making them proficient with thousands of real REST APIs across domains.",
+        "scaling_strategy": "Supervised instruction fine-tuning on ToolBench (~126 k tasks, 470 k API records). Data created by ChatGPT + Depth-First-Search Decision Tree; neural API retriever narrows 16 464 APIs to top-k at inference.",
+        "key_quantitative_results": "ToolLLaMA + retriever matched ChatGPT on internal ToolEval and beat Gorilla on APIBench in AST accuracy, with lower hallucination rates.",
+        "stated_limitations": "Relies on proprietary teacher (ChatGPT); annotation cost for very complex tasks remains high; maintaining live access to thousands of APIs is operationally heavy."
+      },
+      {
+        "paper_name": "Gorilla: Large Language Model Connected with Massive APIs",
+        "authors_and_year": "Shishir Patil et al., 2023",
+        "problem_formulation": "Enable LLMs to pick and call the correct function from a very large library while minimising hallucinations and latency.",
+        "scaling_strategy": "Retrieval-Augmented Fine-Tuning (RAFT): BM25 or dense retriever pulls a small candidate set from 1 600+ APIs (Berkeley Function-Calling Leaderboard). Model fine-tuned to emit exact function JSON.",
+        "key_quantitative_results": "On BFCL v2, Gorilla-7B achieved 86 % function-accuracy at 0.2 $/1 k calls and median latency 1.3 sâ€”3Ã— cheaper and faster than GPT-3.5 with comparable accuracy.",
+        "stated_limitations": "Quality degrades if retriever misses target; still limited multi-step planning; dependency on well-formatted OpenAPI specs."
+      },
+      {
+        "paper_name": "ToolACE: Automatic Curriculum Expansion for Tool Learning",
+        "authors_and_year": "Yingyao Kong et al., 2024",
+        "problem_formulation": "Can we automatically grow a high-quality training curriculum that covers long-horizon, multi-tool compositions without human labour?",
+        "scaling_strategy": "Iterative self-play: a teacherâ€“student loop generates increasingly complex synthetic tasks over 26 000 APIs; difficulty is adaptively raised via performance-based gating.",
+        "key_quantitative_results": "On UltraTool and ToolArena, ToolACE-13B improved success rate from 48 %â†’68 % over baseline supervised fine-tune with no extra human labels.",
+        "stated_limitations": "Expensive compute for self-play; synthetic tasks may diverge from real user distribution; evaluation still lags real-world production complexity."
+      }
+    ],
+    "agentic_reasoning_frameworks": [
+      {
+        "framework_name": "ReAct",
+        "core_idea": "Interleave natural-language reasoning (Thought) with explicit tool calls (Action) in a single streaming trajectory.",
+        "decision_logic": "Few-shot exemplars teach the model to alternate Thought and Action; no external controller.",
+        "action_representation": "Free-form text tags like \"Action: Search\\nAction Input: \\\"query\\\"\".",
+        "scalability_analysis": "Simple to prototype but poor at large tool librariesâ€”every step re-invokes the LLM; token context and latency grow quadratically with step count."
+      },
+      {
+        "framework_name": "WebGPT",
+        "core_idea": "Fine-tune GPT-3 with human demonstrations and RLHF to control a text-based browser.",
+        "decision_logic": "Learned policy emits browser commands when additional evidence is needed to answer a query.",
+        "action_representation": "Commands such as Search, Click, Scroll, Quote encoded as text tokens.",
+        "scalability_analysis": "High answer quality but requires costly domain-specific data; not easily generalisable beyond web browsing without new demonstrations."
+      },
+      {
+        "framework_name": "Plan-and-Execute",
+        "core_idea": "Separate a high-level Planner LLM from a low-level Executor that carries out steps.",
+        "decision_logic": "Planner produces full plan up front; executor deterministically follows it.",
+        "action_representation": "Structured list (or YAML/JSON) of steps that map to tools.",
+        "scalability_analysis": "Reduces LLM calls and context; scales better, but single-shot plan brittle to tool errorsâ€”needs re-planning hooks."
+      },
+      {
+        "framework_name": "ReWOO",
+        "core_idea": "Plannerâ€“Workerâ€“Solver pipeline with placeholders (#E1) for evidence.",
+        "decision_logic": "Planner decides all tool calls once; workers fill placeholders; solver composes final answer.",
+        "action_representation": "Plan lines like \"#E1 = WikiSearch[ \\\"Hennchata\\\" ]\".",
+        "scalability_analysis": "64 % token reduction and 4 % accuracy gain vs ReAct; robust to failures, can use small 7 B planner; good fit for many tools."
+      },
+      {
+        "framework_name": "LLMCompiler",
+        "core_idea": "Stream a DAG of tasks from the Planner and execute nodes in parallel to cut wall-clock time.",
+        "decision_logic": "Runtime scheduler fires node when dependencies satisfied; Planner not re-invoked.",
+        "action_representation": "DAG nodes: {tool, args, parents[]}",
+        "scalability_analysis": "3.6Ã— speed-up on multi-API tasks; parallelism risks wasted calls if branching speculative."
+      },
+      {
+        "framework_name": "Reflexion",
+        "core_idea": "Verbal self-reflection after each episode acts as non-parametric memory to improve future trials.",
+        "decision_logic": "After completing task, model reflects; reflection injected into next run.",
+        "action_representation": "Natural-language trace plus a Reflection string.",
+        "scalability_analysis": "No fine-tuning needed; memory limited by context window, so only a few past reflections fitâ€”scales modestly."
+      }
+    ],
+    "tool_calling_libraries_and_platforms": [
+      {
+        "library_name": "LangChain (including LangGraph)",
+        "tool_registration_model": "LangChain employs a flexible tool abstraction model. Tools are defined either by applying an `@tool` decorator to a Python function or by using a `Tool` wrapper class. These tools are designed to be compatible with the LangChain Expression Language (LCEL). They are bound to a model through the `model.bind_tools(tools_list)` method, and the framework automatically handles the conversion of Python function signatures into JSON schemas that are compatible with the function-calling APIs of various large language models.",
+        "routing_and_planning_logic": "LangChain supports a variety of agent types, including the foundational ReAct-style agents. For more complex and stateful orchestration, its extension, LangGraph, provides a graph-based framework. LangGraph features an advanced search-based planner called Language Agent Tree Search (LATS), which operates on a cycle of Select, Expand & Simulate, Reflect+Evaluate, and Backpropagate. This allows for exploring multiple parallel tool calls. The framework also offers deterministic control by allowing developers to force a specific tool call using the `tool_choice` parameter.",
+        "concurrency_handling": "Concurrency is a core design principle of the LangChain Expression Language (LCEL) `Runnable` stack. It offers built-in primitives such as `RunnableParallel` and `RunnableMap` that facilitate the concurrent invocation of different tools and chains. The documentation provides specific guides for implementing parallel execution. The LATS algorithm within LangGraph explicitly leverages this capability for its parallel simulation step, where it explores multiple candidate tool calls simultaneously.",
+        "monitoring_and_observability": "The primary observability solution within the LangChain ecosystem is LangSmith. It is a dedicated platform that provides highly detailed tracing, logging, and evaluation capabilities specifically tailored for debugging and monitoring agent and chain executions. In addition to its native solution, LangChain also supports integration with the open standard OpenTelemetry for standardized tracing in broader production environments."
+      },
+      {
+        "library_name": "LlamaIndex",
+        "tool_registration_model": "LlamaIndex provides several classes for defining tools. The `FunctionTool` class is used to wrap a standard Python function, supporting both synchronous and asynchronous (`async_fn`) operations, and it automatically infers the tool's schema from type hints and docstrings. The `QueryEngineTool` is a specialized class that exposes an entire LlamaIndex query engine as a single tool. For better organization, a `ToolSpec` can be used to group related tools, which are then converted into a list via the `ToolSpec.to_tool_list()` method.",
+        "routing_and_planning_logic": "Routing in LlamaIndex is typically managed by specialized query engines. The `RouterQueryEngine` and `RetrieverRouter` are architectural patterns designed to intelligently select the most appropriate underlying tool or data source based on the user's query. The framework also supports the construction of various agentic workflows, including both ReAct-style agents and more modern Function Calling agents.",
+        "concurrency_handling": "The framework has native support for asynchronous operations, which is a key feature of the `FunctionTool`. It provides documented examples of how to build parallelized query flows. For larger-scale deployments, the documentation mentions LlamaDeploy and other runtime integrations for distributed execution, although specific examples of clustered execution are less prominent in the provided context.",
+        "monitoring_and_observability": "LlamaIndex offers extensive, 'one-click' observability through deep integrations with a wide array of platforms. It has a dedicated observability module and provides callback handlers for instrumentation. Supported platforms include OpenTelemetry, Arize Phoenix (via its native LlamaTrace), Langfuse, and MLflow, making it highly adaptable to various MLOps stacks."
+      },
+      {
+        "library_name": "Microsoft Semantic Kernel",
+        "tool_registration_model": "The central concept for tools in Semantic Kernel is the 'Plugin'. A plugin is typically a class that contains methods annotated with `[KernelFunction]` (in .NET) or its equivalent in Python and Java. The kernel registers these plugins using methods like `kernel.AddPlugin()`. It is also capable of importing tools directly from OpenAPI specifications and other standard plugin formats, facilitating integration with existing web services.",
+        "routing_and_planning_logic": "While the framework historically included various 'planners' (like Stepwise and Handlebars), the current recommended approach is to leverage the native function-calling capabilities built into modern LLMs for orchestration. The documentation guides users to migrate from older, prompt-based planning methods to this more reliable and robust model-driven approach for routing and sequencing tool calls.",
+        "concurrency_handling": "The SDKs for .NET, Python, and Java are designed with asynchronous patterns as a first-class citizen. They fully support parallel function calling, which allows the underlying language model to request the execution of multiple tools simultaneously in a single turn, reducing round-trip latency.",
+        "monitoring_and_observability": "As a component of the Microsoft ecosystem, the official recommendation for monitoring and observability is to use Azure Application Insights and the OpenTelemetry standard. This allows for the collection of comprehensive telemetry, logs, and traces in production environments, integrating seamlessly with other Azure services."
+      },
+      {
+        "library_name": "Dust",
+        "tool_registration_model": "Dust is a platform-centric solution where tools, referred to as 'Dust Apps', are created on its proprietary developer platform (`dust.tt`). It also provides managed 'Connections' for seamless integration with common enterprise data sources like GitHub, Slack, and BigQuery. The platform is designed to support the Multi-Connector Protocol (MCP) for standardized tool integration.",
+        "routing_and_planning_logic": "Agents built on the Dust platform are capable of selecting and combining multiple tools to solve complex problems. The documentation states that an agent can perform up to eight distinct processing steps within a single workflow. For robust orchestration, Dust utilizes Temporal as its backend, indicating a strong focus on reliability, fault tolerance, and scalability for complex, long-running agentic processes.",
+        "concurrency_handling": "The platform's integration with Temporal provides a powerful and scalable backend for managing concurrent and long-running tasks. A company blog post mentions that this architecture allows them to scale to over 10 million activities per day. Specific user-facing controls for concurrency are not detailed in the provided context, as this is likely managed by the platform's infrastructure.",
+        "monitoring_and_observability": "The Dust platform provides its customers with workspace usage analytics, offering insights into agent performance and resource consumption. While explicit integration with standards like OpenTelemetry is not mentioned, the production-focused nature of the platform and its customer case studies suggest the presence of robust internal monitoring and logging capabilities."
+      },
+      {
+        "library_name": "CrewAI",
+        "tool_registration_model": "CrewAI offers two primary methods for defining tools: a simple decorator-based approach using `@tool` for functions, and a more structured class-based approach that involves subclassing `BaseTool`. Tools can be equipped with metadata and caching hooks for enhanced functionality. They are registered to a specific agent by passing them into the `tools` parameter of its constructor. A dedicated `crewai_tools` package provides a library of pre-built, ready-to-use tools.",
+        "routing_and_planning_logic": "Orchestration in CrewAI is managed through `Crew` and `Flow` primitives. A `Crew` is composed of multiple agents, each with distinct roles, goals, and tools. By setting `planning=True` on a `Crew`, a built-in planner is activated. This planner is responsible for task decomposition and intelligently delegating sub-tasks to the most appropriate agent within the crew.",
+        "concurrency_handling": "The framework has explicit and first-class support for asynchronous operations, including the ability to define async tools and a `kickoff_async()` method for running crews non-blockingly. A key feature for performance is the ability to configure a `Crew` with `parallel=True`, which enables the parallel execution of its agents' tasks, significantly speeding up workflows with independent sub-tasks.",
+        "monitoring_and_observability": "CrewAI offers an enterprise version that advertises advanced features for debugging, tracing, and real-time observability of crew executions. Within the open-source community, execution behavior and diagnostics are actively discussed on platforms like GitHub, providing a source of community-driven support and insight."
+      },
+      {
+        "library_name": "Microsoft AutoGen",
+        "tool_registration_model": "AutoGen uses `BaseTool` and `FunctionTool` classes for tool definition. The `FunctionTool` serves as a convenient wrapper for Python functions, leveraging type annotations and docstrings to automatically generate a JSON schema for the tool. This schema is then made accessible via the tool's `.schema` property for use with function-calling models.",
+        "routing_and_planning_logic": "AutoGen's strength lies in creating complex multi-agent conversational workflows. It uses patterns like `RoutedAgent` and `GroupChat` to manage interactions. The typical flow involves a model client generating `FunctionCall` objects, an agent executing the corresponding tool via `tool.run_json()`, and the `FunctionExecutionResult` being appended back to the shared conversation history for the agents to reflect upon and decide the next step.",
+        "concurrency_handling": "The framework is built on Python's `asyncio` library. The documentation provides examples that demonstrate the use of `asyncio.gather` to execute multiple tool calls concurrently. Its architecture includes a concept of 'runtimes' (e.g., `SingleThreadedAgentRuntime`) and explicitly mentions support for both local and distributed execution layers, indicating a design for scalability.",
+        "monitoring_and_observability": "The AutoGen documentation includes a dedicated cookbook on how to instrument agent code with OpenTelemetry for standardized monitoring. The broader AutoGen ecosystem includes tools like AutoGen Studio for visual prototyping and debugging, and AutoGen Bench for systematically benchmarking agent performance."
+      },
+      {
+        "library_name": "AutoGPT",
+        "tool_registration_model": "Historically, AutoGPT utilized a prompt-driven model where the LLM was provided with a simple textual list of available 'commands' (e.g., `google`, `write_to_file`) and their descriptions. The model would then output JSON specifying the command to run. The newer architecture is evolving towards a more modular, component-based system that implements protocols to add commands and behaviors, replacing a legacy plugin system.",
+        "routing_and_planning_logic": "The core loop of a classic AutoGPT agent is sequential and autoregressive. The LLM proposes a command, the system executes it, the output is added to the agent's memory, and the loop repeats. Planning is implicit in the model's sequential choices. The academic paper \"AutoGPT+P\" (2024) explores enhancing this with explicit, affordance-based planning to improve tool selection and robustness.",
+        "concurrency_handling": "The base open-source implementation of AutoGPT is primarily sequential. Concurrency and the parallel execution of agents are features that are typically introduced in the numerous community forks or in commercial platform variants that have been built on top of the core AutoGPT project.",
+        "monitoring_and_observability": "The core open-source project relies on basic monitoring tools such as console logs and saved session histories (e.g., `ai_settings.yaml`, activity logs). More advanced monitoring capabilities, including web-based user interfaces and analytics dashboards, are a key feature of the commercial platform offerings built around the AutoGPT ecosystem."
+      }
+    ],
+    "commercial_system_implementations": [
+      {
+        "system_name": "Microsoft 365 Copilot",
+        "company": "Microsoft",
+        "relevance_detection_strategy": "The core strategy is a pre-processing step called 'grounding'. Before the LLM is invoked, Copilot's orchestrator queries the Microsoft Graph API within the user's specific organizational tenant. This retrieves relevant and authorized context from the user's own files, emails, chats, and calendar. This retrieved context is then dynamically injected into the prompt, effectively 'grounding' the LLM with timely, personalized, and secure information, which guides it to a relevant response without needing to decide to search the open web.",
+        "latency_control_strategy": "Microsoft employs a sophisticated orchestration pipeline designed for responsiveness. The architecture prioritizes low-latency internal queries to the Microsoft Graph, with some documentation referencing goals of millisecond-level speed for these grounding queries. However, specific numeric Service Level Objectives (SLOs), user-configurable timeouts, or other explicit latency controls are not publicly disclosed.",
+        "safety_gating_strategy": "Safety is enforced through a multi-layered strategy that leverages existing Microsoft 365 infrastructure. All operations are contained within the Microsoft 365 service boundary, ensuring customer data does not leave their tenant. Copilot strictly adheres to the user's existing permissions, enforcing Role-Based Access Controls (RBAC), Conditional Access policies, and Multifactor Authentication (MFA). It also integrates with compliance tools like Microsoft Purview and Data Loss Prevention (DLP) policies."
+      },
+      {
+        "system_name": "OpenAI's API (Actions / Function Calling)",
+        "company": "OpenAI",
+        "relevance_detection_strategy": "Relevance detection is model-driven and guided by developer-provided schemas. The developer passes a list of available 'tools' (functions) along with the API request, each described in a JSON schema format. The model then decides whether to call one or more of these functions based on its interpretation of the user's query and the quality of the function names and descriptions in the provided schemas.",
+        "latency_control_strategy": "OpenAI provides developers with several explicit parameters to manage latency and behavior. The `tool_choice` parameter can be set to `auto` (default), `required` (must use a tool), `none` (cannot use tools), or can force a specific function call. The `parallel_tool_calls` parameter allows the model to call multiple functions in a single turn, which can be disabled to enforce sequential execution. Additionally, API responses can be streamed to improve perceived latency.",
+        "safety_gating_strategy": "Security for OpenAI Actions and Plugins is based on standard web security protocols and a platform governance model. It supports multiple authentication schemes, including API Keys and OAuth 2.0, allowing tools to securely access user-specific data. OpenAI maintains usage policies and a review process for public plugins and Actions, acting as a gatekeeper. The documentation also provides guidance on secure secrets management and the correct implementation of OAuth flows to prevent attacks like CSRF."
+      },
+      {
+        "system_name": "Anthropic's Claude (Tool Use / Computer Use)",
+        "company": "Anthropic",
+        "relevance_detection_strategy": "The strategy is based on an agentic loop. When presented with a user prompt and a set of available tools, the Claude model assesses whether any tools could help formulate a better answer. If so, the API returns a `stop_reason` of `tool_use`. The application is then expected to execute the specified tool and feed the result back to the model, continuing this loop until the task is complete or a limit is reached.",
+        "latency_control_strategy": "Anthropic provides several mechanisms to control latency and prevent runaway processes. Developers are advised to implement `max_iterations` in their agent loops to cap the number of tool-use cycles. The Claude 3.5 Sonnet model also supports a 'thinking' capability with a `budget_tokens` parameter, allowing the model to perform a controllable amount of internal reasoning before acting. The company is transparent about the token overhead of its features.",
+        "safety_gating_strategy": "Safety is a paramount design principle, especially for the powerful 'Computer Use' tool. It is mandatory to run these tools in a sandboxed environment (e.g., an isolated VM or container) with minimal privileges. The system is designed to require human confirmation before executing consequential actions like deleting files or sending emails. It also encourages the use of allowlists for outbound internet access and includes built-in classifiers to defend against prompt injection attacks."
+      },
+      {
+        "system_name": "Perplexity AI (Pro Search / Deep Research)",
+        "company": "Perplexity AI",
+        "relevance_detection_strategy": "Relevance detection is primarily user-driven through explicit mode selection. Users can choose between a fast 'Best' mode, a more thorough 'Pro Search', or a very in-depth 'Deep Research' mode. This shifts the decision of when to perform a deep, tool-intensive search to the user. Internally, the system uses models that perform iterative search-and-reason loops, but the initial trigger is the user's selected mode.",
+        "latency_control_strategy": "Latency is managed as a direct product feature through the different search modes. The 'Deep Research' mode is explicitly advertised with a typical runtime of 2â€“4 minutes, as it performs dozens of searches and synthesizes hundreds of sources. This represents a clear, user-facing trade-off between response latency and the comprehensiveness of the answer, allowing users to choose the appropriate balance for their needs.",
+        "safety_gating_strategy": "Perplexity's main safety feature is its strong emphasis on transparency and citation. All answers are returned with numbered citations that link directly to the source material, allowing users to easily verify the information and assess the credibility of the sources. The analyzed materials did not disclose details on other programmatic safety gates like allowlists or specific technical mitigations for prompt injection."
+      }
+    ],
+    "tool_use_evaluation_benchmarks": [
+      {
+        "benchmark_name": "ToolBench",
+        "primary_goal": "To evaluate an LLM's ability to use a vast collection of real-world APIs in complex, multi-step tasks requiring the selection and orchestration of multiple tools.",
+        "tasks_covered": "Single-tool and multi-tool scenarios, multi-step solution paths, complex tool interactions (intra-category and intra-collection), and open-domain API retrieval.",
+        "scale_and_tools": "A massive collection of ~16,464 real-world REST APIs from ~3,451 tools, with a test set of ~126,486 instances and ~469,585 real API calls.",
+        "evaluation_metrics": "Primarily Pass Rate (successful task completion) and Win Rate (head-to-head comparison against a baseline), presented on a leaderboard. Judged by the automatic ToolEval harness.",
+        "relevance_measurement": "Relevance is measured in two ways: 1) Evaluating the precision and recall of the dedicated API retriever component. 2) Comparing the model's generated sequence of tool calls against a ground-truth solution path annotated using a Depth-First Search Decision Tree (DFSDT)."
+      },
+      {
+        "benchmark_name": "T-Eval",
+        "primary_goal": "To provide a fine-grained, decomposed evaluation of an LLM's tool utilization capabilities across six core ability dimensions, pinpointing specific strengths and weaknesses.",
+        "tasks_covered": "Evaluates six specific abilities: Instruct (following instructions), Plan (creating correct tool sequences), Reason (reasoning over tool outputs), Retrieve (selecting the correct tool), Understand (comprehending documentation), and Review (evaluating/correcting plans).",
+        "scale_and_tools": "A small, curated set of ~15 basic, high-quality tools to test LLM ability rather than resilience to poor documentation. The benchmark contains 23,305 test cases.",
+        "evaluation_metrics": "Uses specific single-index metrics for each of the six abilities, an end-to-end Win Rate against a baseline, and measures planning similarity using Sentence-BERT and the Hopcroft-Karp algorithm.",
+        "relevance_measurement": "Relevance is explicitly measured in the 'Retrieve' subset, which tests if the model selects the correct tool, and the 'Plan' subset, which evaluates if the model's proposed sequence of tool calls matches the golden solution path."
+      },
+      {
+        "benchmark_name": "API-Bank",
+        "primary_goal": "To provide a runnable evaluation of tool-augmented LLMs in realistic, multi-turn dialogue scenarios, where proposed API calls are actually executed to judge correctness.",
+        "tasks_covered": "Multi-turn dialogues requiring planning, retrieval, and calling of APIs. Tasks are graded by difficulty: Call, Retrieve+Call, and Plan+Retrieve+Call.",
+        "scale_and_tools": "The evaluation system uses 73 commonly used, runnable APIs. The evaluation set consists of 314 manually annotated dialogues with 753 API calls.",
+        "evaluation_metrics": "API Call Accuracy (correctness of name and parameters), Response Quality (ROUGE-L for the final text), and a detailed error taxonomy (e.g., No API Call, API Hallucination).",
+        "relevance_measurement": "Relevance is judged against a ground-truth sequence of API calls annotated for each dialogue. Because the calls are executed, the system can determine if a call was functionally relevant and successful, not just syntactically correct."
+      },
+      {
+        "benchmark_name": "Berkeley Function-Calling Leaderboard (BFCL)",
+        "primary_goal": "To formally incorporate efficiency metrics alongside accuracy for evaluating tool-calling models, promoting transparent and reproducible research.",
+        "tasks_covered": "Complex multi-turn and multi-step scenarios reflecting real-world agentic workflows, covering thousands of question-function pairs.",
+        "scale_and_tools": "Evaluates models on large datasets like APIBench (1,600+ APIs) and its own dataset with ~2,000 question-function pairs.",
+        "evaluation_metrics": "Accuracy, Cost (estimated USD per 1,000 calls), and Latency (seconds per generation).",
+        "relevance_measurement": "Relevance is implicitly measured through accuracy metrics. A model that fails to select the relevant tool will have low accuracy. The cost and latency metrics also penalize inefficient or unnecessary tool selections."
+      }
+    ],
+    "tool_selection_routing_policies": {
+      "policy_category": "Learned and Predictive Routing Policies",
+      "key_concepts": "This category encompasses several advanced methods for tool selection. The core idea is to replace simple or static selection logic with a dynamic, learned policy. Key mechanisms include: 1) **Mixture-of-Experts (MoE) Gating**: Using a lightweight, trainable 'router' network to select a sparse subset of 'expert' tools for any given input, often with an auxiliary loss to ensure load balancing. 2) **Reinforcement Learning (RL)**: Framing tool selection as a sequential decision-making problem and using algorithms like PPO to train a policy that learns to use tools strategically based on rewards from task outcomes. 3) **Cost-Aware Prediction**: Building models that predict the cost and accuracy of various tools for a query, then using a router to select the tool that optimizes a cost-performance objective.",
+      "example_systems_or_papers": "Mixture-of-Experts (MoE) principles are detailed in the Switch Transformer paper (arXiv:2101.03961). Reinforcement Learning for tool use is demonstrated in ReTool (arXiv:2504.11536). Cost-aware routing is explored in CARROT (arXiv:2502.03261) and FrugalGPT. System-level co-design for efficient routing is shown in S-LoRA (arXiv:2311.03285) and LoRA-Switch (ICLR 2025).",
+      "scalability_findings": "These policies enable significant scalability and efficiency gains. MoE models like the Switch Transformer achieve up to 7x speedups over dense models. RL-based policies like ReTool can dramatically improve accuracy on complex tasks (e.g., from 40.9% to 67.0% on AIME2024). Cost-aware routers like CARROT can reduce operational costs by ~30% while maintaining performance. System co-design like LoRA-Switch reduces per-token decoding latency by ~2.4x, making dynamic, per-token tool selection practical."
+    },
+    "empirical_impact_of_tool_use": {
+      "study_or_paper_name": "Adaptive Retrieval-Augmented Generation for Conversational Systems (RAGate)",
+      "key_finding": "A selective 'gating' mechanism that learns to predict whether an external tool (like a retrieval system) is needed for a given query is superior to strategies that always use the tool or never use it. This adaptive approach preserves the performance benefits of tool use while drastically reducing the number of tool invocations and mitigating negative side-effects, such as a drop in the model's confidence in its own knowledge.",
+      "quantitative_evidence": "The study provides compelling quantitative evidence for its findings. On the KETOD dataset, the RAGate model reduced the number of retrieval tool calls by 84% compared to a model that always retrieves (787 calls for RAGate vs. 4,964 for the 'Aug-All' model). Despite this massive reduction in tool usage, RAGate preserved most of the performance gains and significantly outperformed a no-retrieval baseline. Furthermore, the study measured the impact on model confidence, finding that always retrieving information caused a -2.9% drop in confidence, whereas the selective RAGate approach caused only a -0.36% drop, indicating it avoids confusing the model with unnecessary external context.",
+      "implications": "The findings provide direct, empirical validation for building a relevance-gating mechanism for tool-calling agents. It proves that an intelligent system that decides *when* to call a tool is more efficient (fewer API calls, less context clutter), more effective (maintaining high performance), and safer (mitigating risks like reduced model confidence which is correlated with hallucination) than simpler, non-selective strategies. This strongly supports the user's goal of dynamically enabling MCPs 'only when relevant' as a core principle for building scalable and robust AI systems."
+    },
+    "efficiency_management_strategies": {
+      "strategy_name": "Retrieval-as-Filter (Two-Stage Selection)",
+      "description": "This is a critical strategy for managing large toolsets. Instead of providing the LLM with the full, often massive, list of all available tool schemas, a two-stage process is used. First, a fast and computationally cheap retrieval system (e.g., a vector database with Approximate Nearest Neighbor search) selects a small subset of the most relevant candidate tools based on the user's query and the tool descriptions. Second, the LLM is invoked with only this small, filtered list of tools in its context to make the final selection and generate the call.",
+      "impact_on_efficiency": "This strategy drastically reduces the number of tokens in the LLM's input prompt. This leads to significant reductions in both the monetary cost of API calls and the latency of inference. It also helps focus the LLM's reasoning on a more manageable and relevant set of options, potentially improving accuracy.",
+      "trade_offs": "The primary trade-off is that the overall system's performance becomes critically dependent on the quality of the initial retrieval step. If the retriever fails to surface the correct tool in its candidate set, the LLM will have no opportunity to select it, leading to a task failure. This introduces the retriever as a new potential point of failure in the system."
+    },
+    "security_and_safety_frameworks": {
+      "framework_or_concept": "Principle of Least Privilege",
+      "description": "The Principle of Least Privilege is a fundamental computer security concept that dictates that an agent, process, or user should be given only the minimum levels of accessâ€”or permissionsâ€”necessary to perform its specific tasks. In the context of LLM agents, this means strictly limiting the tools an agent can access and the actions it can perform with those tools to the absolute minimum required for its intended function, thereby reducing the potential damage from a security breach, bug, or malicious exploitation.",
+      "key_components_or_rules": "Implementing the Principle of Least Privilege for tool-using agents involves several best practices:\n1. **Minimizing Functionality**: Instead of providing broad, powerful tools (e.g., a generic `run_shell(command)`), expose narrow, purpose-built APIs (e.g., `write_file(path, contents)`, `get_stock_price(ticker)`). This limits the scope of possible actions.\n2. **Minimizing Permissions**: Scope credentials and access tokens as narrowly as possible. This includes using per-user OAuth tokens with minimal scopes (e.g., read-only access) and avoiding the use of shared, high-privilege service accounts.\n3. **Human-in-the-Loop (HITL)**: For any sensitive, destructive, or irreversible action (e.g., deleting a file, sending an email, modifying a database), the agent must require explicit, affirmative user approval before execution.\n4. **Sandboxing and Containment**: Execute any untrusted code (from third-party tools or generated by the LLM itself) in a secure, isolated sandbox (e.g., using WebAssembly or hardened containers with strict network policies) to contain potential harm.",
+      "relevance_to_mcp_scaling": "This principle is directly relevant and critical to securely scaling MCPs. As the number of available tools grows, the potential attack surface expands dramatically. An agent with access to thousands of tools presents a significant risk of 'Excessive Agency' (OWASP Top 10 for LLMs, LLM06), where it can be manipulated via prompt injection or compromised tools to perform unintended, harmful actions. Applying the Principle of Least Privilege at every layerâ€”from the protocol (e.g., MCP's use of OAuth resource indicators) to the agent's runtimeâ€”is the primary mitigation strategy. It ensures that even if an agent is compromised, the potential blast radius is strictly limited to the minimal set of permissions it was granted, preventing catastrophic failures."
+    },
+    "open_research_gaps_and_future_directions": {
+      "research_area": "Automatic Tool Discovery, Validation, and Integration",
+      "description_of_gap": "Current tool-using models largely depend on a pre-defined, manually registered set of tools provided by a developer within the prompt or application code. This manual process is a major bottleneck to true scalability. The open research gap is the creation of a full, autonomous lifecycle for tool acquisition, where an agent can dynamically discover new tools from an open ecosystem, validate their safety and functionality, integrate them into its working set, and eventually deprecate them, all without human intervention.",
+      "key_challenges": "Several key challenges hinder the realization of autonomous tool discovery. First, **discovery and ranking** must move beyond simple semantic similarity of tool descriptions to more sophisticated methods that can understand complex API schemas, code examples, and usage context. Second, **automated validation** is critical; agents need a reliable way to sandbox and test newly discovered tools to verify their safety, correctness, and reliability before using them for real tasks, protecting against malicious or buggy tools. Third, **secure credential management** for autonomously onboarded tools is an unsolved problem, requiring robust mechanisms for automated, least-privilege access control.",
+      "future_research_directions": "Future research is heading towards several promising directions. One is the development of **hierarchical and compact representations** of tools, allowing for efficient coarse-to-fine retrieval from massive tool libraries. Another is the creation of **centralized discovery services**, or 'meta-servers' (as proposed in the MCP-Zero paper), that act as trusted, queryable registries for agents. Research is also focused on **hybrid architectures** that combine large-scale retrieval to find candidate tools with a learned agentic policy (like in Toolformer) to make the final, nuanced decision on whether and how to use a tool. Finally, developing standardized benchmarks to evaluate the entire autonomous tool acquisition lifecycle is essential for driving progress."
+    },
+    "key_takeaways_for_project": "The prior art research provides strong validation for the project's core thesis and offers concrete architectural patterns for implementation.\n\n1.  **Strong Validation for 'Dynamic Enablement':** The central idea of enabling the Parallel Search MCP only when relevant is empirically supported as a best practice. The RAGate paper (Wang et al., 2024) is a key piece of evidence, demonstrating that a selective, gated approach to tool use can reduce API calls by over 80% while preserving the vast majority of performance benefits and mitigating negative side effects like reduced model confidence. This provides a solid, data-backed foundation for the project's direction.\n\n2.  **Architecture for the 'Cerebras Relevance Prompt':** The user's concept of a \"relevance prompt\" run on Cerebras hardware is best understood as a **router or gating mechanism**. The research suggests several mature patterns for this:\n    *   **Mixture-of-Experts (MoE) Gating:** The prompt can be designed to function like the gating network in an MoE model. It would be a fast, lightweight task for a specialized model (running on Cerebras) to decide between two \"experts\": (1) the base LLM with no tools, or (2) the LLM augmented with the Parallel Search MCP. Research on Switch Transformers provides guidance on training such routers, including the use of a load-balancing loss to ensure the tool is used appropriately.\n    *   **Learned Policy:** The relevance decision can be framed as a policy learning problem. Following the approach of ReTool (2025), the system could be fine-tuned with Reinforcement Learning (RL), where it receives a reward for providing a correct answer while being penalized for unnecessary tool calls. This would optimize the relevance logic beyond simple prompting.\n    *   **Cost-Aware Routing:** Inspired by the CARROT framework (2025), the Cerebras prompt could be designed to predict not just relevance, but the trade-off between the cost of the search (latency, tokens) and the expected improvement in answer quality, making a more sophisticated routing decision.\n\n3.  **Strategy for Scaling to 'Many Other MCPs':** To scale beyond a single search tool, the project should adopt the industry-standard **two-stage retrieval-augmented architecture**:\n    *   **Stage 1 (Retrieval):** Create vector embeddings for the schemas and descriptions of all available MCPs. When a query is received, use a fast Approximate Nearest Neighbor (ANN) search to retrieve the `top-k` (e.g., 3-5) most relevant MCPs. This is a computationally cheap filtering step.\n    *   **Stage 2 (Reasoning):** Pass the user's prompt along with the schemas of only this small, retrieved subset of MCPs to the main LLM (e.g., GPT-5). The LLM then makes the final decision on which, if any, of these candidate tools to use.\n    This approach, used by ToolLLM and Gorilla, is the only proven method to handle thousands of tools without exceeding context window limits.\n\n4.  **Integration with `prompt_modules` and `LMPIFY`:**\n    *   The **`prompt_modules` protocol** appears to be a specific implementation of a tool-calling standard, analogous to the general MCP specification. The security research is highly relevant here: integration should adhere to the MCP security model, using OAuth 2.1 with Resource Indicators to ensure that credentials for one MCP cannot be used with another.\n    *   The \"Cerebras relevance prompt\" is the logic that should be encapsulated *within* the `prompt_module` for the Parallel Search tool. The module's role is to execute this relevance check and then, if the check passes, suggest the tool's invocation according to the protocol.\n    *   While **LMPIFY** is not identified in the public literature, its role is likely either as an orchestration framework (like LangChain or AutoGen) or another tool (MCP). The modular, agentic architectures surveyed provide clear patterns for integrating such a component into the overall workflow, either as the central 'brain' that calls the prompt modules or as another tool that can be called in a chain.",
+    "comparative_summary_of_agentic_frameworks": "| Framework | WHEN does the model act? | HOW is the tool call encoded? | Scalability Verdict |\n|-----------|--------------------------|--------------------------------|---------------------|\n| ReAct | Implicitly, each time the prompt pattern suggests \"Action\" â€” decided token-by-token inside one long context. | Plaintext tags (Thought / Action / Observation). | Easy PoC; falls apart with >â‰ˆ20 tools due to context & latency blow-up. |\n| WebGPT | Learned browser-command policy after imitation+RLHF; triggers when citation needed. | Text commands (Search, Click, Quote). | High quality in narrow domain; expensive to replicate for many domains. |\n| Plan-and-Execute | Single Planner pass decides full step list; Executor follows. | Structured list (JSON/YAML). | Good: LLM cost ~O(1). Needs re-planning hooks for robustness. |\n| ReWOO | Planner emits placeholders (#E1). Workers fetch evidence; Solver answers. | Plan lines with placeholder = Tool[arg]. | Best token efficiency; proven on 6 QA sets; scales to 1 000s tools if retriever narrows candidates. |\n| LLMCompiler | Planner streams DAG; runtime parallelises independent nodes. | DAG nodes {tool, args, parents}. | Superior latency for wide task graphs; speculative branches may waste compute. |\n| Reflexion | Acts in episodes; after each, writes Reflection guiding next trial. | Natural-language memory entries. | Lightweight but bounded by context window â†’ moderate scalability. |",
+    "comparative_summary_of_commercial_systems": "A comparative analysis of major commercial systems reveals several distinct strategies for scaling tool integration, particularly in relevance detection, latency control, and safety gating. For relevance detection, systems employ a spectrum of approaches: Microsoft's Copilot uses a proactive 'grounding' strategy, querying the user's private data via the Microsoft Graph to enrich the prompt before the LLM sees it. In contrast, OpenAI relies on a reactive, model-driven approach where the LLM interprets developer-provided JSON schemas to decide when to call a tool. Perplexity AI offloads the decision to the user through explicit 'modes' (e.g., fast vs. deep research), while Anthropic's Claude uses an agentic loop, signaling its need for a tool which an external application must then fulfill. The most sophisticated systems use an orchestrator to pre-process queries and inject relevant context, making the tool use more of a guided process than a blind decision. Latency control strategies are similarly diverse. OpenAI provides granular, developer-facing controls like `parallel_tool_calls` and `tool_choice` parameters. Anthropic focuses on resource management, offering `max_iterations` caps and token budgets for reasoning. Perplexity AI productizes the latency-depth trade-off, allowing users to explicitly choose a slow, comprehensive search over a fast, brief one. Safety gating is universally a multi-layered defense. The common strategies include technical isolation (mandated sandboxing by Anthropic for powerful tools), robust identity and access management (Microsoft's deep integration with tenant RBAC/MFA and OpenAI's use of OAuth 2.0), and requiring human-in-the-loop confirmation for sensitive actions (a core tenet of Anthropic's design). Platform governance, such as OpenAI's review process for public plugins, adds another layer of ecosystem-wide safety."
+  },
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "prior_art_markdown_summary": {
+        "type": "string",
+        "description": "A comprehensive summary of prior art in scaling tool-calling, formatted in markdown as requested by the user for inclusion in a README file. This section synthesizes the key findings from academic papers, agentic frameworks, and industry practices."
+      },
+      "executive_summary_of_prior_art": {
+        "type": "string",
+        "description": "A high-level overview of the key trends and findings in the research on scaling tool-calling for large language models. It summarizes the evolution from self-supervised learning to large-scale supervised tuning and the emergence of sophisticated agentic frameworks."
+      },
+      "academic_papers_on_tool_learning": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "paper_name": {
+              "type": "string",
+              "description": "The title of the academic paper."
+            },
+            "authors_and_year": {
+              "type": "string",
+              "description": "The primary authors and publication year of the paper."
+            },
+            "problem_formulation": {
+              "type": "string",
+              "description": "How the paper frames the problem of teaching LLMs to use tools."
+            },
+            "scaling_strategy": {
+              "type": "string",
+              "description": "The method used for data generation and scaling to a number of tools."
+            },
+            "key_quantitative_results": {
+              "type": "string",
+              "description": "Specific metrics and results demonstrating the effectiveness of the approach."
+            },
+            "stated_limitations": {
+              "type": "string",
+              "description": "The limitations of the approach as noted by the authors."
+            }
+          },
+          "required": [
+            "paper_name",
+            "authors_and_year",
+            "problem_formulation",
+            "scaling_strategy",
+            "key_quantitative_results",
+            "stated_limitations"
+          ],
+          "additionalProperties": false
+        },
+        "description": "A detailed analysis of seminal academic papers on teaching language models to use tools. For each paper, this includes its problem formulation, data generation and scaling strategy, evaluation setup, key quantitative results, and stated limitations. Papers covered include Toolformer, ToolLLM, Gorilla, and ToolACE."
+      },
+      "agentic_reasoning_frameworks": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "framework_name": {
+              "type": "string",
+              "description": "The name of the agentic reasoning framework."
+            },
+            "core_idea": {
+              "type": "string",
+              "description": "The central concept or architecture of the framework."
+            },
+            "decision_logic": {
+              "type": "string",
+              "description": "The mechanism by which the framework decides when to take an action."
+            },
+            "action_representation": {
+              "type": "string",
+              "description": "How actions and tool calls are represented within the framework."
+            },
+            "scalability_analysis": {
+              "type": "string",
+              "description": "An analysis of the framework's ability to scale to large tool libraries, including its trade-offs."
+            }
+          },
+          "required": [
+            "framework_name",
+            "core_idea",
+            "decision_logic",
+            "action_representation",
+            "scalability_analysis"
+          ],
+          "additionalProperties": false
+        },
+        "description": "A survey of major agentic reasoning frameworks that combine language reasoning with external tool actions. For each framework, this includes its core idea, the mechanism for deciding when to act, how actions are represented, and an analysis of its scalability. Frameworks covered include ReAct, WebGPT, Plan-and-Execute, ReWOO, LLMCompiler, and Reflexion."
+      },
+      "tool_calling_libraries_and_platforms": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "library_name": {
+              "type": "string",
+              "description": "The name of the open-source library or platform."
+            },
+            "tool_registration_model": {
+              "type": "string",
+              "description": "How tools are defined and registered within the library."
+            },
+            "routing_and_planning_logic": {
+              "type": "string",
+              "description": "The logic used for routing queries and planning sequences of tool calls."
+            },
+            "concurrency_handling": {
+              "type": "string",
+              "description": "How the library handles concurrent or parallel tool execution."
+            },
+            "monitoring_and_observability": {
+              "type": "string",
+              "description": "The tools and integrations provided for monitoring and observing agent behavior."
+            }
+          },
+          "required": [
+            "library_name",
+            "tool_registration_model",
+            "routing_and_planning_logic",
+            "concurrency_handling",
+            "monitoring_and_observability"
+          ],
+          "additionalProperties": false
+        },
+        "description": "A comparative inventory of open-source libraries and platforms designed for building tool-using agents. For each entry, this includes its tool registration model, routing and planning logic, concurrency handling, monitoring capabilities, and examples of production adoption. Libraries covered include LangChain, LlamaIndex, Semantic Kernel, Dust, CrewAI, AutoGen, and AutoGPT."
+      },
+      "commercial_system_implementations": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "system_name": {
+              "type": "string",
+              "description": "The name of the commercial product or system."
+            },
+            "company": {
+              "type": "string",
+              "description": "The company that developed the system."
+            },
+            "relevance_detection_strategy": {
+              "type": "string",
+              "description": "The disclosed strategy for detecting when a tool is relevant to a user's query."
+            },
+            "latency_control_strategy": {
+              "type": "string",
+              "description": "The disclosed strategy for managing and controlling response latency."
+            },
+            "safety_gating_strategy": {
+              "type": "string",
+              "description": "The disclosed strategy for ensuring the safe and secure use of tools."
+            }
+          },
+          "required": [
+            "system_name",
+            "company",
+            "relevance_detection_strategy",
+            "latency_control_strategy",
+            "safety_gating_strategy"
+          ],
+          "additionalProperties": false
+        },
+        "description": "An analysis of production-grade commercial systems that have implemented large-scale tool integration. For each system, this details their disclosed strategies for relevance detection, latency control, and safety gating. Systems covered include Microsoft 365 Copilot, OpenAI's API (Actions), Anthropic's Claude (Tool Use), and Perplexity AI."
+      },
+      "tool_use_evaluation_benchmarks": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "benchmark_name": {
+              "type": "string",
+              "description": "The name of the evaluation benchmark."
+            },
+            "primary_goal": {
+              "type": "string",
+              "description": "The main objective or goal of the benchmark."
+            },
+            "tasks_covered": {
+              "type": "string",
+              "description": "The types of tasks and abilities the benchmark evaluates."
+            },
+            "scale_and_tools": {
+              "type": "string",
+              "description": "The number and type of tools included in the benchmark."
+            },
+            "evaluation_metrics": {
+              "type": "string",
+              "description": "The key metrics used to measure performance."
+            },
+            "relevance_measurement": {
+              "type": "string",
+              "description": "How the benchmark specifically measures the correctness of tool selection decisions."
+            }
+          },
+          "required": [
+            "benchmark_name",
+            "primary_goal",
+            "tasks_covered",
+            "scale_and_tools",
+            "evaluation_metrics",
+            "relevance_measurement"
+          ],
+          "additionalProperties": false
+        },
+        "description": "A summary of benchmarks created specifically to evaluate the tool-use capabilities of LLMs. For each benchmark, this includes the tasks it covers, the number and type of tools involved, its primary evaluation metrics, and how it measures the relevance of tool selection decisions. Benchmarks covered include ToolBench, T-Eval, API-Bank, and others."
+      },
+      "tool_selection_routing_policies": {
+        "type": "object",
+        "properties": {
+          "policy_category": {
+            "type": "string",
+            "description": "The category of the routing policy, such as Mixture-of-Experts or Reinforcement Learning."
+          },
+          "key_concepts": {
+            "type": "string",
+            "description": "The core ideas and mechanisms of this policy category."
+          },
+          "example_systems_or_papers": {
+            "type": "string",
+            "description": "Specific examples of systems or research papers that implement this policy."
+          },
+          "scalability_findings": {
+            "type": "string",
+            "description": "Key findings related to the scalability and performance trade-offs of this approach."
+          }
+        },
+        "required": [
+          "policy_category",
+          "key_concepts",
+          "example_systems_or_papers",
+          "scalability_findings"
+        ],
+        "additionalProperties": false
+      },
+      "empirical_impact_of_tool_use": {
+        "type": "object",
+        "properties": {
+          "study_or_paper_name": {
+            "type": "string",
+            "description": "The name of the empirical study or research paper."
+          },
+          "key_finding": {
+            "type": "string",
+            "description": "The main conclusion of the study regarding the impact of tool use."
+          },
+          "quantitative_evidence": {
+            "type": "string",
+            "description": "Specific data or metrics from the study that support the key finding."
+          },
+          "implications": {
+            "type": "string",
+            "description": "The broader implications of the study's findings for building tool-using agents."
+          }
+        },
+        "required": [
+          "study_or_paper_name",
+          "key_finding",
+          "quantitative_evidence",
+          "implications"
+        ],
+        "additionalProperties": false
+      },
+      "efficiency_management_strategies": {
+        "type": "object",
+        "properties": {
+          "strategy_name": {
+            "type": "string",
+            "description": "The name of the efficiency management strategy, such as 'Retrieval-as-Filter'."
+          },
+          "description": {
+            "type": "string",
+            "description": "A brief description of how the strategy works."
+          },
+          "impact_on_efficiency": {
+            "type": "string",
+            "description": "How this strategy affects cost, latency, or token usage."
+          },
+          "trade_offs": {
+            "type": "string",
+            "description": "The potential trade-offs or downsides of implementing this strategy."
+          }
+        },
+        "required": [
+          "strategy_name",
+          "description",
+          "impact_on_efficiency",
+          "trade_offs"
+        ],
+        "additionalProperties": false
+      },
+      "security_and_safety_frameworks": {
+        "type": "object",
+        "properties": {
+          "framework_or_concept": {
+            "type": "string",
+            "description": "The name of the security framework or concept, such as 'Principle of Least Privilege'."
+          },
+          "description": {
+            "type": "string",
+            "description": "A summary of the framework or concept."
+          },
+          "key_components_or_rules": {
+            "type": "string",
+            "description": "The essential components, rules, or best practices associated with it."
+          },
+          "relevance_to_mcp_scaling": {
+            "type": "string",
+            "description": "How this concept applies to the challenge of securely scaling tool-calling."
+          }
+        },
+        "required": [
+          "framework_or_concept",
+          "description",
+          "key_components_or_rules",
+          "relevance_to_mcp_scaling"
+        ],
+        "additionalProperties": false
+      },
+      "open_research_gaps_and_future_directions": {
+        "type": "object",
+        "properties": {
+          "research_area": {
+            "type": "string",
+            "description": "The specific area of open research, such as 'Automatic Tool Discovery'."
+          },
+          "description_of_gap": {
+            "type": "string",
+            "description": "A description of the current limitations or what is missing in this area."
+          },
+          "key_challenges": {
+            "type": "string",
+            "description": "The main challenges that need to be overcome."
+          },
+          "future_research_directions": {
+            "type": "string",
+            "description": "Potential future work or directions for the research community."
+          }
+        },
+        "required": [
+          "research_area",
+          "description_of_gap",
+          "key_challenges",
+          "future_research_directions"
+        ],
+        "additionalProperties": false
+      },
+      "key_takeaways_for_project": {
+        "type": "string",
+        "description": "Synthesized insights from the prior art research that are directly relevant to the user's project goals. This includes validation for the 'dynamic enablement' approach, potential architectures for the 'Cerebras relevance prompt', and considerations for integrating with protocols like prompt_modules and LMPIFY."
+      },
+      "comparative_summary_of_agentic_frameworks": {
+        "type": "string",
+        "description": "A structured comparison of different agentic frameworks, summarizing their strategies for when to act, how actions are represented, and their scalability. This is presented in a comparative format for easy reference."
+      },
+      "comparative_summary_of_commercial_systems": {
+        "type": "string",
+        "description": "A structured comparison of how major commercial systems handle tool integration, focusing on their different approaches to relevance detection, latency control, and safety gating."
+      }
+    },
+    "required": [
+      "prior_art_markdown_summary",
+      "executive_summary_of_prior_art",
+      "academic_papers_on_tool_learning",
+      "agentic_reasoning_frameworks",
+      "tool_calling_libraries_and_platforms",
+      "commercial_system_implementations",
+      "tool_use_evaluation_benchmarks",
+      "tool_selection_routing_policies",
+      "empirical_impact_of_tool_use",
+      "efficiency_management_strategies",
+      "security_and_safety_frameworks",
+      "open_research_gaps_and_future_directions",
+      "key_takeaways_for_project",
+      "comparative_summary_of_agentic_frameworks",
+      "comparative_summary_of_commercial_systems"
+    ],
+    "additionalProperties": false
+  }
+}
