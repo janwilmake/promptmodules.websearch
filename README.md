@@ -12,6 +12,8 @@ This [prompt_module](https://promptmodules.com) aims to suggest the [Parallel Se
 
 TODO:
 
+- Wait for [prior art research](https://tasks.gptideas.com/task/43ce637c-dcb1-4539-8da3-bf1d850896e3)
+- Ask audience about this routing thing posing the problem; there may be other MCP OSS routers
 - Create a Cerebras "relevance prompt" targeting [gpt-5](https://simonwillison.net/2025/Aug/7/gpt-5/)
 - Integrate this with LMPIFY through the prompt_modules protocol to demonstrate the power of this.
 - Use it in conjunction with many other MCPs to show scaling MCP is possible
